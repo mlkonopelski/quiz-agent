@@ -6,7 +6,16 @@ authors = [{ name = "Temporal Technologies Inc", email = "sdk@temporal.io" }]
 requires-python = ">=3.10"
 readme = "README.md"
 license = "MIT"
-dependencies = ["temporalio>=1.23.0,<2"]
+dependencies = [
+    "temporalio>=1.23.0,<2",
+    "langchain>=1.2,<2",
+    "langchain-openai>=1.1,<2",
+    "openai>=1.4.0,<2",
+    "fastapi>=0.115.12",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.62.0,<5",
+    "uvicorn[standard]>=0.24.0.post1,<0.25",
+]
 
 [project.urls]
 Homepage = "https://github.com/temporalio/samples-python"
@@ -30,15 +39,6 @@ bedrock = ["boto3>=1.34.92,<2"]
 dsl = ["pyyaml>=6.0.1,<7", "types-pyyaml>=6.0.12,<7", "dacite>=1.8.1,<2"]
 encryption = ["cryptography>=38.0.1,<39", "aiohttp>=3.8.1,<4"]
 gevent = ["gevent>=25.4.2 ; python_version >= '3.8'"]
-langchain = [
-    "langchain>=0.1.7,<0.2 ; python_version >= '3.8.1' and python_version < '4.0'",
-    "langchain-openai>=0.0.6,<0.0.7 ; python_version >= '3.8.1' and python_version < '4.0'",
-    "langsmith>=0.1.22,<0.2 ; python_version >= '3.8.1' and python_version < '4.0'",
-    "openai>=1.4.0,<2",
-    "fastapi>=0.115.12",
-    "tqdm>=4.62.0,<5",
-    "uvicorn[standard]>=0.24.0.post1,<0.25",
-]
 nexus = ["nexus-rpc>=1.1.0,<2"]
 open-telemetry = [
     "temporalio[opentelemetry]",

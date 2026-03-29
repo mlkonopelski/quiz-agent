@@ -26,9 +26,5 @@ async def generate_quiz(params: QuizParams) -> str:
         ]
     )
     chain = chat_prompt | ChatOpenAI()
-    return (
-        dict(
-            await chain.ainvoke({"topic": params.topic})
-        ).get("content")
-        or ""
-    )
+    result = await chain.ainvoke({"topic": params.topic})
+    return str(result.content)
