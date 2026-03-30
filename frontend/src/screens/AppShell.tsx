@@ -515,11 +515,6 @@ export function AppShell() {
   }
 
   const composerEnabled = isComposerEnabled(snapshot);
-  const statusMessage =
-    snapshot?.message ??
-    (workflowId
-      ? "Reconnecting to the active workflow..."
-      : "Ready to start a new quiz.");
   const displayedError = uiError ?? snapshot?.last_error ?? null;
   const availableActions =
     snapshot?.available_actions ?? ["NEW_QUIZ", "LOAD_COMPLETED_QUIZ"];
@@ -571,7 +566,6 @@ export function AppShell() {
 
   return (
     <ChatLayout
-      actions={availableActions}
       busy={busy}
       busyLabel={busyLabel}
       composerDisabled={!composerEnabled}
@@ -585,9 +579,12 @@ export function AppShell() {
       scrollToken={`${workflowId ?? "none"}:${transcript.length}:${snapshotSignature(
         snapshot,
       )}`}
-      statusMessage={statusMessage}
     >
       <AssistantBubble text="Welcome back. Start a source-driven quiz or open a completed review whenever you’re ready." />
+
+      {snapshot?.message ? (
+        <AssistantBubble text={snapshot.message} />
+      ) : null}
 
       {transcript.map((entry) => {
         if (entry.kind === "assistant-message") {

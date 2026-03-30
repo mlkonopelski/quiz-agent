@@ -83,7 +83,6 @@ button {
 .auth-copy,
 .card-copy,
 .composer-helper,
-.status-label,
 .score-label,
 .selection-summary,
 .review-list-item small {
@@ -91,8 +90,7 @@ button {
 }
 
 .eyebrow,
-.card-kicker,
-.status-label {
+.card-kicker {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.73rem;
@@ -101,7 +99,6 @@ button {
 }
 
 .auth-panel h1,
-.app-header h1,
 .surface-card h2 {
   font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
   letter-spacing: -0.03em;
@@ -195,34 +192,28 @@ button {
 .app-frame {
   min-height: 100vh;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   padding: 24px;
   gap: 18px;
 }
 
 .app-header,
-.status-strip,
 .composer-shell {
   border: 1px solid var(--border-soft);
   background: rgba(255, 255, 255, 0.74);
   border-radius: 22px;
 }
 
-.app-header,
-.status-strip {
-  padding: 18px 22px;
-}
-
 .app-header {
+  padding: 10px 22px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
 }
 
-.app-header h1 {
-  margin-bottom: 4px;
-  font-size: clamp(1.8rem, 2vw, 2.2rem);
+.app-header .eyebrow {
+  margin: 0;
 }
 
 .header-actions {
@@ -231,8 +222,7 @@ button {
   gap: 12px;
 }
 
-.identity-pill,
-.action-pill {
+.identity-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -246,31 +236,6 @@ button {
   font-weight: 700;
 }
 
-.status-strip {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.status-message {
-  margin: 6px 0 0;
-  font-size: 1.02rem;
-  font-weight: 600;
-}
-
-.action-pills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.action-pill {
-  padding: 8px 12px;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
 
 .error-banner {
   border-radius: 18px;
@@ -509,14 +474,9 @@ button {
     padding: 18px 16px;
   }
 
-  .app-header,
-  .status-strip {
+  .app-header {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .action-pills {
-    justify-content: flex-start;
   }
 
   .score-grid {

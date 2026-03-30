@@ -2,8 +2,6 @@ import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 
 
 interface ChatLayoutProps {
   email: string;
-  actions: string[];
-  statusMessage: string;
   errorMessage: string | null;
   busy: boolean;
   busyLabel: string | null;
@@ -19,8 +17,6 @@ interface ChatLayoutProps {
 
 export function ChatLayout({
   email,
-  actions,
-  statusMessage,
   errorMessage,
   busy,
   busyLabel,
@@ -72,10 +68,7 @@ export function ChatLayout({
   return (
     <div className="app-frame">
       <header className="app-header">
-        <div>
-          <p className="eyebrow">Temporal Quiz Agent</p>
-          <h1>Operator Chat</h1>
-        </div>
+        <p className="eyebrow">Temporal Quiz Agent</p>
         <div className="header-actions">
           <div className="identity-pill">{email}</div>
           <button className="ghost-button" onClick={onLogout} type="button">
@@ -83,20 +76,6 @@ export function ChatLayout({
           </button>
         </div>
       </header>
-
-      <section className="status-strip">
-        <div>
-          <p className="status-label">Workflow status</p>
-          <p className="status-message">{statusMessage}</p>
-        </div>
-        <div className="action-pills" aria-label="Available actions">
-          {actions.map((action) => (
-            <span className="action-pill" key={action}>
-              {action.replaceAll("_", " ")}
-            </span>
-          ))}
-        </div>
-      </section>
 
       {errorMessage ? (
         <section className="error-banner" role="alert">
