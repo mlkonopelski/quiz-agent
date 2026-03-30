@@ -132,14 +132,14 @@ class OpenRouterJsonGateway:
             payload = json.loads(content)
         except json.JSONDecodeError as exc:
             preview = content[:200].replace("\n", "\\n")
-            raise NonRetryableOpenRouterError(
+            raise RetryableOpenRouterError(
                 f"Invalid JSON response: {exc}. Content preview: {preview!r}"
             ) from exc
 
         try:
             return response_type.model_validate(payload)
         except ValidationError as exc:
-            raise NonRetryableOpenRouterError(
+            raise RetryableOpenRouterError(
                 f"Schema validation failed: {exc}"
             ) from exc
 
