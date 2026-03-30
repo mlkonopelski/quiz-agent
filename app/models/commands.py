@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CommandEnvelope(BaseModel):
@@ -23,4 +23,4 @@ class CommandEnvelope(BaseModel):
     markdown_url: str | None = None
     session_id: str | None = None
     text: str | None = None
-    selected_answers: list[int] = []
+    selected_answers: list[int] = Field(default_factory=list)

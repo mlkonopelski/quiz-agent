@@ -4,7 +4,7 @@ from datetime import timedelta
 from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
-    from app.activities import QuizParams, generate_quiz
+    from app.legacy.activities import QuizParams, generate_quiz
 
 
 @dataclass

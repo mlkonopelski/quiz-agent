@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Any, Mapping, Protocol, Type
-from dotenv import load_dotenv
 from temporalio import activity, api, client, converter, worker, workflow
 
 with workflow.unsafe.imports_passed_through():

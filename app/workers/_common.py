@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Coroutine
+from typing import Any
 
 from dotenv import load_dotenv
 from temporalio.client import Client
@@ -41,7 +43,7 @@ async def run_worker(
     await worker.run()
 
 
-def main(coro: asyncio.coroutines) -> None:
+def main(coro: Coroutine[Any, Any, object]) -> None:
     """Run a worker coroutine with graceful shutdown."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

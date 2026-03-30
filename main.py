@@ -1,5 +1,5 @@
 def main():
-    print("Hello from quiz-agent!")
+    print("Run `python -m app.starter` for the API or one of `app.workers.*` for workers.")
 
 
 if __name__ == "__main__":

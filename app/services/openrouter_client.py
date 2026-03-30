@@ -5,10 +5,13 @@ All LLM activities must call OpenRouter exclusively through this client.
 
 from __future__ import annotations
 
+import json
 import os
-from typing import Any
+import re
+from typing import Any, TypeVar
 
 import httpx
+from pydantic import BaseModel, ValidationError
 from temporalio.exceptions import ApplicationError
 
 
@@ -22,7 +25,11 @@ class NonRetryableOpenRouterError(ApplicationError):
         super().__init__(message, non_retryable=True)
 
 
-_RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
+_T = TypeVar("_T", bound=BaseModel)
+_JSON_FENCE_RE = re.compile(
+    r"^\s*```(?:json)?\s*(.*?)\s*```\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 class OpenRouterClient:
@@ -72,7 +79,7 @@ class OpenRouterClient:
             return response.json()
 
         body = response.text
-        if response.status_code in _RETRYABLE_STATUS_CODES:
+        if response.status_code == 429 or 500 <= response.status_code <= 599:
             raise RetryableOpenRouterError(
                 f"OpenRouter {response.status_code}: {body[:200]}"
             )
@@ -82,10 +89,88 @@ class OpenRouterClient:
 
     def get_content(self, response: dict[str, Any]) -> str:
         """Extract the assistant message content from a chat completion response."""
-        return response["choices"][0]["message"]["content"]
+        content = response["choices"][0]["message"]["content"]
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            chunks: list[str] = []
+            for part in content:
+                if isinstance(part, dict):
+                    text = part.get("text")
+                    if isinstance(text, str):
+                        chunks.append(text)
+                elif isinstance(part, str):
+                    chunks.append(part)
+            return "".join(chunks)
+        if content is None:
+            return ""
+        return str(content)
 
     async def close(self) -> None:
         await self._client.aclose()
+
+
+class OpenRouterJsonGateway:
+    def __init__(self, client: OpenRouterClient | None = None) -> None:
+        self._client = client or OpenRouterClient()
+
+    async def request_model(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, str]],
+        response_type: type[_T],
+        temperature: float = 0.2,
+    ) -> _T:
+        response = await self._client.chat_completion(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+        )
+        content = self._extract_json_text(self._client.get_content(response))
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError as exc:
+            preview = content[:200].replace("\n", "\\n")
+            raise NonRetryableOpenRouterError(
+                f"Invalid JSON response: {exc}. Content preview: {preview!r}"
+            ) from exc
+
+        try:
+            return response_type.model_validate(payload)
+        except ValidationError as exc:
+            raise NonRetryableOpenRouterError(
+                f"Schema validation failed: {exc}"
+            ) from exc
+
+    async def close(self) -> None:
+        await self._client.close()
+
+    def _extract_json_text(self, content: str) -> str:
+        stripped = content.strip()
+        if not stripped:
+            return stripped
+
+        fenced_match = _JSON_FENCE_RE.match(stripped)
+        if fenced_match:
+            stripped = fenced_match.group(1).strip()
+
+        if stripped.startswith("{") or stripped.startswith("["):
+            return stripped
+
+        for opener, closer in (("{", "}"), ("[", "]")):
+            start = stripped.find(opener)
+            end = stripped.rfind(closer)
+            if start == -1 or end == -1 or end <= start:
+                continue
+            candidate = stripped[start : end + 1]
+            try:
+                json.loads(candidate)
+                return candidate
+            except json.JSONDecodeError:
+                continue
+
+        return stripped
 
 
 def get_model(env_var: str) -> str:

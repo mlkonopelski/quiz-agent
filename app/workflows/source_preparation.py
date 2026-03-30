@@ -8,6 +8,7 @@ from datetime import timedelta
 from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
+    from app.activities.db_activities import persist_prepared_source
     from app.activities.source_activities import (
         fetch_source,
         normalize_source,
@@ -17,6 +18,7 @@ with workflow.unsafe.imports_passed_through():
     from app.models.source import (
         FetchSourceInput,
         NormalizeSourceInput,
+        PersistPreparedSourceInput,
         SourceDescriptor,
         SourcePreparationInput,
         StoreRawSourceInput,
@@ -71,6 +73,19 @@ class SourcePreparationWorkflow:
             ),
             task_queue=_LLM_QUEUE,
             schedule_to_close_timeout=timedelta(seconds=120),
+        )
+
+        # 5. Persist prepared source context for later generation
+        await workflow.execute_activity(
+            persist_prepared_source,
+            PersistPreparedSourceInput(
+                source_id=source_id,
+                normalized_content=normalized.normalized_content,
+                summary=summary_result.summary,
+                topic_candidates=summary_result.topic_candidates,
+            ),
+            task_queue=_DB_QUEUE,
+            schedule_to_close_timeout=timedelta(seconds=30),
         )
 
         return SourceDescriptor(

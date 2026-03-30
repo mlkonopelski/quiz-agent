@@ -1,13 +1,11 @@
 import asyncio
 
-from dotenv import load_dotenv
-from app.activities import generate_quiz
-
 from app.langchain_interceptor import LangChainContextPropagationInterceptor
+from app.legacy.activities import generate_quiz
+from app.legacy.workflow import QuizWorkflow
 from temporalio.client import Client
 from temporalio.envconfig import ClientConfig
 from temporalio.worker import Worker
-from app.workflow import QuizWorkflow
 
 interrupt_event = asyncio.Event()
 

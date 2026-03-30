@@ -6,7 +6,6 @@ Activities for fetching, storing, normalizing, and summarizing markdown sources.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 
 import httpx
@@ -23,7 +22,11 @@ from app.models.source import (
     SummarizeSourceOutput,
 )
 from app.services.db import DatabaseService
-from app.services.openrouter_client import OpenRouterClient, get_model
+from app.services.openrouter_client import (
+    NonRetryableOpenRouterError,
+    OpenRouterJsonGateway,
+    get_model,
+)
 
 _SUMMARIZE_SYSTEM = """\
 You are a document summarizer. Given a normalized markdown document and a topic, \
@@ -35,18 +38,95 @@ Respond ONLY with valid JSON:
   "summary": "<2-3 paragraph summary>",
   "topic_candidates": ["candidate1", "candidate2", ...]
 }}"""
+_GITHUB_BLOB_URL_RE = re.compile(
+    r"^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$"
+)
+_HEADING_PREFIX_RE = re.compile(r"^(#+|\d+\.)\s*")
+_NON_WORD_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _normalize_markdown_url(markdown_url: str) -> str:
+    match = _GITHUB_BLOB_URL_RE.match(markdown_url)
+    if not match:
+        return markdown_url
+
+    owner, repo, ref, path = match.groups()
+    return f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{path}"
+
+
+def _fallback_topic_candidates(topic: str, normalized_content: str) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add_candidate(value: str) -> None:
+        cleaned = _HEADING_PREFIX_RE.sub("", value).strip(" -:\t#")
+        if len(cleaned) < 3:
+            return
+        key = cleaned.casefold()
+        if key in seen:
+            return
+        seen.add(key)
+        candidates.append(cleaned)
+
+    add_candidate(topic)
+
+    for line in normalized_content.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            add_candidate(stripped)
+        elif stripped.startswith("- ") and len(stripped) <= 80:
+            add_candidate(stripped[2:])
+        if len(candidates) >= 8:
+            break
+
+    return candidates[:8]
+
+
+def _fallback_summary(topic: str, normalized_content: str) -> SummarizeSourceOutput:
+    paragraphs = [
+        paragraph.strip()
+        for paragraph in re.split(r"\n\s*\n", normalized_content)
+        if paragraph.strip()
+    ]
+    useful_paragraphs = [
+        paragraph
+        for paragraph in paragraphs
+        if len(_NON_WORD_RE.sub("", paragraph.casefold())) >= 40
+    ]
+    excerpt_parts = useful_paragraphs[:2] or paragraphs[:2]
+    excerpt = "\n\n".join(excerpt_parts).strip()
+    if len(excerpt) > 900:
+        excerpt = excerpt[:897].rstrip() + "..."
+    if not excerpt:
+        excerpt = normalized_content[:300].strip() or f"Source material for {topic}."
+
+    summary = f"Fallback summary for {topic}:\n\n{excerpt}"
+    return SummarizeSourceOutput(
+        summary=summary,
+        topic_candidates=_fallback_topic_candidates(topic, normalized_content),
+    )
 
 
 @activity.defn
 async def fetch_source(input: FetchSourceInput) -> FetchSourceOutput:
     """Fetch raw markdown content from a URL."""
+    request_url = _normalize_markdown_url(input.markdown_url)
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(input.markdown_url)
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            headers={"User-Agent": "quiz-agent/2.0"},
+        ) as client:
+            response = await client.get(request_url)
             response.raise_for_status()
             raw_content = response.text
     except httpx.TimeoutException as exc:
-        raise ApplicationError(f"Timeout fetching {input.markdown_url}: {exc}", non_retryable=False) from exc
+        raise ApplicationError(
+            f"Timeout fetching {input.markdown_url}: {exc}",
+            non_retryable=False,
+        ) from exc
     except httpx.HTTPStatusError as exc:
         retryable = exc.response.status_code >= 500
         raise ApplicationError(
@@ -101,7 +181,7 @@ async def normalize_source(input: NormalizeSourceInput) -> NormalizedSourceOutpu
 @activity.defn
 async def summarize_source(input: SummarizeSourceInput) -> SummarizeSourceOutput:
     """Summarize source content and extract topic candidates via LLM."""
-    client = OpenRouterClient()
+    gateway = OpenRouterJsonGateway()
     model = get_model("OPENROUTER_CLARIFICATION_MODEL")
 
     # Truncate content if too long for context
@@ -116,16 +196,23 @@ async def summarize_source(input: SummarizeSourceInput) -> SummarizeSourceOutput
     ]
 
     try:
-        response = await client.chat_completion(model=model, messages=messages)
-        text = client.get_content(response)
-        parsed = json.loads(text)
-        return SummarizeSourceOutput(
-            summary=parsed["summary"],
-            topic_candidates=parsed.get("topic_candidates", []),
-        )
-    except (json.JSONDecodeError, KeyError) as exc:
-        raise ApplicationError(
-            f"Invalid summarize response: {exc}", non_retryable=True
-        ) from exc
+        try:
+            return await gateway.request_model(
+                model=model,
+                messages=messages,
+                response_type=SummarizeSourceOutput,
+            )
+        except NonRetryableOpenRouterError as exc:
+            if (
+                "Invalid JSON response" not in str(exc)
+                and "Schema validation failed" not in str(exc)
+            ):
+                raise
+            activity.logger.warning(
+                "Summarize source returned malformed structured output; "
+                "falling back to deterministic summary. Error: %s",
+                exc,
+            )
+            return _fallback_summary(input.topic, input.normalized_content)
     finally:
-        await client.close()
+        await gateway.close()

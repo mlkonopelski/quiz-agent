@@ -5,6 +5,9 @@ All persistence and review activities.
 
 from app.activities.db_activities import (
     finalize_session,
+    load_source_context,
+    mark_session_abandoned,
+    persist_prepared_source,
     persist_answer,
     persist_session_and_questions,
 )
@@ -22,7 +25,10 @@ if __name__ == "__main__":
             activities=[
                 persist_session_and_questions,
                 persist_answer,
+                mark_session_abandoned,
                 finalize_session,
+                persist_prepared_source,
+                load_source_context,
                 list_user_sessions,
                 load_completed_quiz_review,
                 store_raw_source,

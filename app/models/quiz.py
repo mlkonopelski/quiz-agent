@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from app.models.preferences import UserPreferences
+from app.models.preferences import UserPreferences, UserPreferencesPatch
 
 
 class QuizGenerationInput(BaseModel):
@@ -14,7 +14,9 @@ class QuizGenerationInput(BaseModel):
     topic: str
     preferences: UserPreferences
     question_count: int = 6
-    exclude_question_hashes: list[str] = []
+    exclude_question_hashes: list[str] = Field(default_factory=list)
+    parent_workflow_id: str
+    parent_workflow_run_id: str
 
     @field_validator("question_count")
     @classmethod
@@ -26,6 +28,7 @@ class QuizGenerationInput(BaseModel):
 
 class RuntimeQuestion(BaseModel):
     question_id: str
+    question_hash: str
     question_text: str
     options: list[str]  # exactly 4
     correct_answers: list[int]
@@ -54,7 +57,8 @@ class ClarificationTurnInput(BaseModel):
     summary: str
     topic: str
     history: list[dict[str, str]]
-    partial_preferences: UserPreferences
+    partial_preferences: UserPreferencesPatch
+    fallback_focus_areas: list[str] = Field(default_factory=list)
 
 
 class QuizGenerateInput(BaseModel):
@@ -62,6 +66,7 @@ class QuizGenerateInput(BaseModel):
     preferences: UserPreferences
     question_count: int = 6
     source_summary: str = ""
+    topic_candidates: list[str] = Field(default_factory=list)
 
 
 class RawQuizQuestion(BaseModel):
@@ -79,6 +84,8 @@ class QuizCritiqueInput(BaseModel):
     topic: str
     preferences: UserPreferences
     questions: list[RawQuizQuestion]
+    source_summary: str = ""
+    topic_candidates: list[str] = Field(default_factory=list)
 
 
 class CritiqueOutput(BaseModel):
@@ -92,6 +99,10 @@ class QuizRegenerateInput(BaseModel):
     preferences: UserPreferences
     original_questions: list[RawQuizQuestion]
     critique_feedback: str
+    question_count: int
+    source_summary: str = ""
+    topic_candidates: list[str] = Field(default_factory=list)
+    avoid_question_texts: list[str] = Field(default_factory=list)
 
 
 # --- Activity I/O models for DB activities ---
@@ -104,8 +115,8 @@ class PersistSessionInput(BaseModel):
     topic: str
     preferences: UserPreferences
     questions: list[RuntimeQuestion]
-    workflow_id: str
-    workflow_run_id: str
+    parent_workflow_id: str
+    parent_workflow_run_id: str
 
 
 class PersistAnswerInput(BaseModel):
@@ -120,6 +131,10 @@ class FinalizeSessionInput(BaseModel):
     session_key: str
     final_score: float
     final_score_pct: float
+
+
+class MarkSessionAbandonedInput(BaseModel):
+    session_key: str
 
 
 class SessionSummary(BaseModel):

@@ -2,10 +2,12 @@
 
 import httpx
 import pytest
+from pydantic import BaseModel
 
 from app.services.openrouter_client import (
     NonRetryableOpenRouterError,
     OpenRouterClient,
+    OpenRouterJsonGateway,
     RetryableOpenRouterError,
 )
 
@@ -84,3 +86,68 @@ async def test_timeout_raises_retryable(client, monkeypatch):
         await client.chat_completion(
             model="test/model", messages=[{"role": "user", "content": "Hi"}]
         )
+
+
+class DemoResponse(BaseModel):
+    summary: str
+
+
+async def test_json_gateway_parses_fenced_json(monkeypatch):
+    mock_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": '```json\n{"summary":"Pipecat overview"}\n```'
+                }
+            }
+        ],
+    }
+
+    async def mock_post(self, url, **kwargs):
+        return httpx.Response(200, json=mock_response)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+    gateway = OpenRouterJsonGateway(client=OpenRouterClient(api_key="test-key"))
+    try:
+        result = await gateway.request_model(
+            model="test/model",
+            messages=[{"role": "user", "content": "Hi"}],
+            response_type=DemoResponse,
+        )
+    finally:
+        await gateway.close()
+
+    assert result.summary == "Pipecat overview"
+
+
+async def test_json_gateway_parses_content_arrays(monkeypatch):
+    mock_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": '{"summary":"Structured content array"}',
+                        }
+                    ]
+                }
+            }
+        ],
+    }
+
+    async def mock_post(self, url, **kwargs):
+        return httpx.Response(200, json=mock_response)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+    gateway = OpenRouterJsonGateway(client=OpenRouterClient(api_key="test-key"))
+    try:
+        result = await gateway.request_model(
+            model="test/model",
+            messages=[{"role": "user", "content": "Hi"}],
+            response_type=DemoResponse,
+        )
+    finally:
+        await gateway.close()
+
+    assert result.summary == "Structured content array"

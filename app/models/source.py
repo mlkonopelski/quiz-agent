@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SourcePreparationInput(BaseModel):
@@ -18,7 +18,7 @@ class SourceDescriptor(BaseModel):
     markdown_url: str
     topic: str
     summary: str
-    topic_candidates: list[str]
+    topic_candidates: list[str] = Field(default_factory=list)
 
 
 # --- Activity I/O models ---
@@ -55,4 +55,23 @@ class SummarizeSourceInput(BaseModel):
 
 class SummarizeSourceOutput(BaseModel):
     summary: str
-    topic_candidates: list[str]
+    topic_candidates: list[str] = Field(default_factory=list)
+
+
+class PersistPreparedSourceInput(BaseModel):
+    source_id: str
+    normalized_content: str
+    summary: str
+    topic_candidates: list[str] = Field(default_factory=list)
+
+
+class LoadSourceContextInput(BaseModel):
+    source_id: str
+
+
+class SourceContext(BaseModel):
+    source_id: str
+    markdown_url: str
+    normalized_content: str
+    summary: str
+    topic_candidates: list[str] = Field(default_factory=list)

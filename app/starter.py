@@ -1,6 +1,7 @@
 """FastAPI starter with signal/query API for V2 workflows (spec §6)."""
 
 from contextlib import asynccontextmanager
+import os
 from uuid import uuid4
 
 import uvicorn
@@ -13,6 +14,7 @@ from temporalio.envconfig import ClientConfig
 from app.converter import pydantic_data_converter
 from app.langchain_interceptor import LangChainContextPropagationInterceptor
 from app.models.commands import CommandEnvelope
+from app.models.conversation import ConversationWorkflowInput
 from app.models.snapshots import WorkflowSnapshot
 from app.workflows.conversational_agent import ConversationalAgentWorkflow
 
@@ -49,11 +51,15 @@ async def create_session(req: CreateSessionRequest, request: Request):
     """Start a new ConversationalAgentWorkflow for a user."""
     client: Client = request.app.state.temporal_client
     workflow_id = f"quiz-agent-{req.user_id}-{uuid4().hex[:8]}"
+    default_question_count = int(os.getenv("QUIZ_DEFAULT_QUESTION_COUNT", "6"))
 
     try:
         await client.start_workflow(
             ConversationalAgentWorkflow.run,
-            req.user_id,
+            ConversationWorkflowInput(
+                user_id=req.user_id,
+                default_question_count=default_question_count,
+            ),
             id=workflow_id,
             task_queue="quiz-workflows",
         )
