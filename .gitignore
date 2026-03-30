@@ -62,6 +62,9 @@ db.sqlite3
 db.sqlite3-journal
 quiz_agent.db
 quiz_agent.db-journal
+quiz_agent.db-shm
+quiz_agent.db-wal
+readme.local.md
 
 # Flask stuff:
 instance/
