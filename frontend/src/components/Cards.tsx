@@ -175,29 +175,26 @@ export function QuizCard({
   );
 }
 
-interface ResultCardProps {
-  result: ResultView;
-  busy: boolean;
-  canRegenerate: boolean;
-  canLoadCompleted: boolean;
-  canQuit: boolean;
-  onNewQuiz: () => void;
-  onRegenerate: () => void;
-  onLoadCompleted: () => void;
-  onQuit: () => void;
-}
+type ResultCardProps =
+  | {
+      result: ResultView;
+      interactive: false;
+    }
+  | {
+      result: ResultView;
+      interactive?: true;
+      busy: boolean;
+      canRegenerate: boolean;
+      canLoadCompleted: boolean;
+      canQuit: boolean;
+      onNewQuiz: () => void;
+      onRegenerate: () => void;
+      onLoadCompleted: () => void;
+      onQuit: () => void;
+    };
 
-export function ResultCard({
-  result,
-  busy,
-  canRegenerate,
-  canLoadCompleted,
-  canQuit,
-  onNewQuiz,
-  onRegenerate,
-  onLoadCompleted,
-  onQuit,
-}: ResultCardProps) {
+export function ResultCard(props: ResultCardProps) {
+  const { result } = props;
   return (
     <article className="surface-card result-card">
       <p className="card-kicker">Result</p>
@@ -218,30 +215,32 @@ export function ResultCard({
           </strong>
         </div>
       </div>
-      <div className="card-actions">
-        <button className="primary-button" disabled={busy} onClick={onNewQuiz} type="button">
-          New Quiz
-        </button>
-        <button
-          className="ghost-button"
-          disabled={busy || !canRegenerate}
-          onClick={onRegenerate}
-          type="button"
-        >
-          Regenerate Last Topic
-        </button>
-        <button
-          className="ghost-button"
-          disabled={busy || !canLoadCompleted}
-          onClick={onLoadCompleted}
-          type="button"
-        >
-          Load Completed Quiz
-        </button>
-        <button className="ghost-button" disabled={busy || !canQuit} onClick={onQuit} type="button">
-          Quit
-        </button>
-      </div>
+      {props.interactive !== false ? (
+        <div className="card-actions">
+          <button className="primary-button" disabled={props.busy} onClick={props.onNewQuiz} type="button">
+            New Quiz
+          </button>
+          <button
+            className="ghost-button"
+            disabled={props.busy || !props.canRegenerate}
+            onClick={props.onRegenerate}
+            type="button"
+          >
+            Regenerate Last Topic
+          </button>
+          <button
+            className="ghost-button"
+            disabled={props.busy || !props.canLoadCompleted}
+            onClick={props.onLoadCompleted}
+            type="button"
+          >
+            Load Completed Quiz
+          </button>
+          <button className="ghost-button" disabled={props.busy || !props.canQuit} onClick={props.onQuit} type="button">
+            Quit
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -290,7 +289,17 @@ export function ReviewListCard({
   );
 }
 
-export function ReviewCard({ review }: { review: CompletedQuizReviewView }) {
+export function ReviewCard({
+  review,
+  interactive,
+  onBackToMenu,
+  busy,
+}: {
+  review: CompletedQuizReviewView;
+  interactive?: boolean;
+  onBackToMenu?: () => void;
+  busy?: boolean;
+}) {
   return (
     <article className="surface-card review-card">
       <p className="card-kicker">Completed review</p>
@@ -327,6 +336,13 @@ export function ReviewCard({ review }: { review: CompletedQuizReviewView }) {
           </section>
         ))}
       </div>
+      {interactive && onBackToMenu ? (
+        <div className="card-actions">
+          <button className="primary-button" disabled={busy} onClick={onBackToMenu} type="button">
+            Back to Menu
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }

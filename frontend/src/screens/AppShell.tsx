@@ -21,6 +21,8 @@ import {
 import {
   appendAnsweredQuestion,
   appendClarificationReply,
+  appendResult,
+  appendReview,
   ensurePromptRecorded,
   type TranscriptEntry,
 } from "../app/transcript";
@@ -118,6 +120,28 @@ export function AppShell() {
 
   const applySnapshot = useEffectEvent(
     (targetWorkflowId: string, nextSnapshot: WorkflowSnapshot) => {
+      const prev = snapshot;
+      if (prev && prev.state !== nextSnapshot.state) {
+        if (prev.state === "RESULT_MENU" && prev.result) {
+          setTranscript((current) => {
+            const next = appendResult(current, prev.result!, `result:${targetWorkflowId}`);
+            saveTranscript(targetWorkflowId, next);
+            return next;
+          });
+        }
+        if (prev.state === "REVIEW_COMPLETED" && prev.completed_review) {
+          setTranscript((current) => {
+            const next = appendReview(
+              current,
+              prev.completed_review!,
+              `review:${prev.completed_review!.session_id}`,
+            );
+            saveTranscript(targetWorkflowId, next);
+            return next;
+          });
+        }
+      }
+
       startTransition(() => {
         setSnapshot(nextSnapshot);
         setSelectedAnswers([]);
@@ -341,7 +365,7 @@ export function AppShell() {
         return;
       }
       if (command.kind === "BACK_TO_MENU") {
-        persistTranscript(activeWorkflowId, []);
+        // Transcript preserved — frozen cards remain visible as conversation history
       }
       await waitForSnapshotChange(activeWorkflowId, previousSignature);
     } catch (error) {
@@ -404,10 +428,7 @@ export function AppShell() {
         kind: "BACK_TO_MENU",
         selected_answers: [],
       },
-      {
-        busyMessage: "Returning to menu...",
-        clearLocalTranscriptFirst: true,
-      },
+      { busyMessage: "Returning to menu..." },
     );
   }
 
@@ -593,6 +614,12 @@ export function AppShell() {
         if (entry.kind === "user-message") {
           return <UserBubble key={entry.id} text={entry.text} />;
         }
+        if (entry.kind === "result") {
+          return <ResultCard key={entry.id} result={entry.result} interactive={false} />;
+        }
+        if (entry.kind === "review") {
+          return <ReviewCard key={entry.id} review={entry.review} />;
+        }
         if (entry.kind !== "answered-question") {
           return null;
         }
@@ -659,7 +686,7 @@ export function AppShell() {
       ) : null}
 
       {snapshot?.state === "REVIEW_COMPLETED" && snapshot.completed_review ? (
-        <ReviewCard review={snapshot.completed_review} />
+        <ReviewCard review={snapshot.completed_review} interactive onBackToMenu={handleBackToMenu} busy={busy} />
       ) : null}
 
       {snapshot &&

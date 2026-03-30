@@ -1,4 +1,9 @@
-import type { PromptView, QuestionView } from "../api/types";
+import type {
+  CompletedQuizReviewView,
+  PromptView,
+  QuestionView,
+  ResultView,
+} from "../api/types";
 
 export type TranscriptEntry =
   | {
@@ -16,6 +21,16 @@ export type TranscriptEntry =
       isMultiAnswer: boolean;
       position: number;
       totalQuestions: number;
+    }
+  | {
+      id: string;
+      kind: "result";
+      result: ResultView;
+    }
+  | {
+      id: string;
+      kind: "review";
+      review: CompletedQuizReviewView;
     };
 
 export function ensurePromptRecorded(
@@ -68,6 +83,28 @@ export function appendAnsweredQuestion(
       totalQuestions: question.total_questions,
     },
   ];
+}
+
+export function appendResult(
+  transcript: TranscriptEntry[],
+  result: ResultView,
+  id: string,
+): TranscriptEntry[] {
+  if (transcript.some((entry) => entry.id === id)) {
+    return transcript;
+  }
+  return [...transcript, { id, kind: "result", result }];
+}
+
+export function appendReview(
+  transcript: TranscriptEntry[],
+  review: CompletedQuizReviewView,
+  id: string,
+): TranscriptEntry[] {
+  if (transcript.some((entry) => entry.id === id)) {
+    return transcript;
+  }
+  return [...transcript, { id, kind: "review", review }];
 }
 
 export function selectedLabels(

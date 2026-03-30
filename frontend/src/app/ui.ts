@@ -19,7 +19,7 @@ export function composerDisabledReason(snapshot: WorkflowSnapshot | null): strin
     return "Choose a completed quiz from the review card above.";
   }
   if (snapshot.state === "REVIEW_COMPLETED") {
-    return "Review mode is read-only. Use the action card above.";
+    return "Review mode is read-only. Use the actions on the review card.";
   }
   if (snapshot.state === "PREPARATION_FAILED" || snapshot.state === "GENERATION_FAILED" || snapshot.state === "ABANDONED") {
     return "Use the recovery actions above.";

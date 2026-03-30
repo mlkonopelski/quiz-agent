@@ -118,7 +118,6 @@ export function ChatLayout({
             {busy && busyLabel ? busyLabel : "Send"}
           </button>
         </form>
-        <p className="composer-helper">{composerHelper}</p>
       </footer>
     </div>
   );
