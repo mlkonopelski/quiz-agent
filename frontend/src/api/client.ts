@@ -56,6 +56,13 @@ export class QuizApiClient {
     });
   }
 
+  async getActiveSession(): Promise<string | null> {
+    const payload = await this.requestJson<CreateSessionResponse | null>(
+      "/sessions/active",
+    );
+    return payload?.workflow_id ?? null;
+  }
+
   async getSnapshot(workflowId: string): Promise<WorkflowSnapshot> {
     return this.requestJson<WorkflowSnapshot>(`/sessions/${workflowId}/snapshot`);
   }

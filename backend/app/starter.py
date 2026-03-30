@@ -258,6 +258,23 @@ def create_app(
 
         return CreateSessionResponse(workflow_id=workflow_id)
 
+    @app.get("/sessions/active")
+    async def get_active_session(
+        request: Request,
+        email: str = Depends(_get_authenticated_email),
+    ):
+        """Find the user's currently running workflow, if any."""
+        client = cast(Client, request.app.state.temporal_client)
+        prefix = _workflow_prefix_for_email(email)
+        query = (
+            f"WorkflowType = 'ConversationalAgentWorkflow' "
+            f"AND ExecutionStatus = 'Running' "
+            f"AND WorkflowId STARTS_WITH '{prefix}'"
+        )
+        async for wf in client.list_workflows(query):
+            return CreateSessionResponse(workflow_id=wf.id)
+        return None
+
     @app.post("/sessions/{workflow_id}/commands")
     async def send_command(
         workflow_id: str,

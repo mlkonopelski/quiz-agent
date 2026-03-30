@@ -229,21 +229,30 @@ export function AppShell() {
         setLoginEmail(currentUser.email);
         saveLastEmail(currentUser.email);
 
-        const storedWorkflowId = loadWorkflowId(currentUser.email);
-        if (!storedWorkflowId) {
+        let resolvedWorkflowId = loadWorkflowId(currentUser.email);
+
+        if (!resolvedWorkflowId) {
+          resolvedWorkflowId = await apiClient.getActiveSession();
+          if (ignore) return;
+          if (resolvedWorkflowId) {
+            saveWorkflowId(currentUser.email, resolvedWorkflowId);
+          }
+        }
+
+        if (!resolvedWorkflowId) {
           setWorkflowId(null);
           setSnapshot(null);
           setTranscript([]);
           return;
         }
 
-        setWorkflowId(storedWorkflowId);
-        setTranscript(loadTranscript(storedWorkflowId));
-        const nextSnapshot = await apiClient.getSnapshot(storedWorkflowId);
+        setWorkflowId(resolvedWorkflowId);
+        setTranscript(loadTranscript(resolvedWorkflowId));
+        const nextSnapshot = await apiClient.getSnapshot(resolvedWorkflowId);
         if (ignore) {
           return;
         }
-        applySnapshot(storedWorkflowId, nextSnapshot);
+        applySnapshot(resolvedWorkflowId, nextSnapshot);
       } catch (error) {
         if (ignore) {
           return;
@@ -305,12 +314,20 @@ export function AppShell() {
       setLoginEmail(session.email);
       setLoginPassword("");
 
-      const storedWorkflowId = loadWorkflowId(session.email);
-      if (storedWorkflowId) {
-        setWorkflowId(storedWorkflowId);
-        setTranscript(loadTranscript(storedWorkflowId));
-        const nextSnapshot = await apiClient.getSnapshot(storedWorkflowId);
-        applySnapshot(storedWorkflowId, nextSnapshot);
+      let resolvedWorkflowId = loadWorkflowId(session.email);
+
+      if (!resolvedWorkflowId) {
+        resolvedWorkflowId = await apiClient.getActiveSession();
+        if (resolvedWorkflowId) {
+          saveWorkflowId(session.email, resolvedWorkflowId);
+        }
+      }
+
+      if (resolvedWorkflowId) {
+        setWorkflowId(resolvedWorkflowId);
+        setTranscript(loadTranscript(resolvedWorkflowId));
+        const nextSnapshot = await apiClient.getSnapshot(resolvedWorkflowId);
+        applySnapshot(resolvedWorkflowId, nextSnapshot);
       } else {
         setWorkflowId(null);
         setSnapshot(null);

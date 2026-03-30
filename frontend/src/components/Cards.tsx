@@ -71,7 +71,7 @@ export function SetupCard({
           New Quiz
         </button>
         <button className="ghost-button" disabled={busy} onClick={onLoadCompleted} type="button">
-          Load Completed Quiz
+          Show results of previous Quizes
         </button>
       </div>
     </article>
@@ -234,7 +234,7 @@ export function ResultCard(props: ResultCardProps) {
             onClick={props.onLoadCompleted}
             type="button"
           >
-            Load Completed Quiz
+            Show results of previous Quizes
           </button>
           <button className="ghost-button" disabled={props.busy || !props.canQuit} onClick={props.onQuit} type="button">
             Quit
