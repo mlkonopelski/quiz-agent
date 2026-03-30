@@ -43,6 +43,7 @@ describe("AppShell", () => {
     cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
     window.localStorage.clear();
   });
 
@@ -143,6 +144,85 @@ describe("AppShell", () => {
         }),
       );
     });
+  });
+
+  test("continues polling until a clarification prompt is available", async () => {
+    window.localStorage.setItem("quiz-agent:last-email", "demo@example.com");
+    window.localStorage.setItem(
+      "quiz-agent:workflow:demo@example.com",
+      "wf-clarify",
+    );
+
+    mockFetchSequence([
+      { status: 200, json: { email: "demo@example.com" } },
+      {
+        status: 200,
+        json: {
+          state: "CLARIFYING",
+          message: "Let me understand your preferences...",
+          pending_prompt: null,
+          current_question: null,
+          result: null,
+          review_sessions: null,
+          completed_review: null,
+          available_actions: ["QUIT"],
+          last_error: null,
+        },
+      },
+      {
+        status: 200,
+        json: {
+          state: "CLARIFYING",
+          message: "What difficulty do you want?",
+          pending_prompt: {
+            prompt_id: "prompt-2",
+            text: "What difficulty do you want?",
+            turn_no: 1,
+          },
+          current_question: null,
+          result: null,
+          review_sessions: null,
+          completed_review: null,
+          available_actions: ["REPLY_CLARIFICATION", "QUIT"],
+          last_error: null,
+        },
+      },
+      {
+        status: 200,
+        json: {
+          state: "CLARIFYING",
+          message: "What difficulty do you want?",
+          pending_prompt: {
+            prompt_id: "prompt-2",
+            text: "What difficulty do you want?",
+            turn_no: 1,
+          },
+          current_question: null,
+          result: null,
+          review_sessions: null,
+          completed_review: null,
+          available_actions: ["REPLY_CLARIFICATION", "QUIT"],
+          last_error: null,
+        },
+      },
+    ]);
+
+    render(<AppShell />);
+
+    expect(
+      await screen.findByText(/let me understand your preferences/i),
+    ).toBeVisible();
+    expect(await screen.findByLabelText(/message input/i)).toBeDisabled();
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getAllByText("What difficulty do you want?").length,
+        ).toBeGreaterThan(0);
+        expect(screen.getByLabelText(/message input/i)).toBeEnabled();
+      },
+      { timeout: 2500 },
+    );
   });
 
   test("quiz answers submit the current question id and disable the composer", async () => {

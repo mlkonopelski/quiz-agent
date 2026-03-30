@@ -37,7 +37,7 @@ describe("ui helpers", () => {
     ).toBe(false);
   });
 
-  test("background polling only runs while source prep or quiz generation are active", () => {
+  test("background polling keeps running while clarification is still waiting on a prompt", () => {
     expect(
       shouldBackgroundPoll({
         state: "PREPARING_SOURCE",
@@ -51,6 +51,17 @@ describe("ui helpers", () => {
     expect(
       shouldBackgroundPoll({
         state: "CLARIFYING",
+        pending_prompt: null,
+      } as WorkflowSnapshot),
+    ).toBe(true);
+    expect(
+      shouldBackgroundPoll({
+        state: "CLARIFYING",
+        pending_prompt: {
+          prompt_id: "prompt-1",
+          text: "What level?",
+          turn_no: 1,
+        },
       } as WorkflowSnapshot),
     ).toBe(false);
   });

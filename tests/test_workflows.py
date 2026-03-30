@@ -244,6 +244,33 @@ class TestMenuState:
         assert "LOAD_COMPLETED_QUIZ" in snapshot.available_actions
         assert "QUIT" in snapshot.available_actions
 
+    def test_clarification_wait_state_hides_reply_action(self):
+        workflow = ConversationalAgentWorkflow()
+
+        workflow._set_clarification_wait_state()
+        snapshot = workflow.get_snapshot()
+
+        assert snapshot.state == "CLARIFYING"
+        assert snapshot.pending_prompt is None
+        assert snapshot.available_actions == ["QUIT"]
+        assert snapshot.message == "Let me understand your preferences..."
+
+    def test_clarification_prompt_state_exposes_prompt_and_reply_action(self):
+        workflow = ConversationalAgentWorkflow()
+
+        workflow._set_clarification_prompt(
+            prompt_id="prompt-1",
+            message="What level should I target?",
+            turn_no=1,
+        )
+        snapshot = workflow.get_snapshot()
+
+        assert snapshot.state == "CLARIFYING"
+        assert snapshot.pending_prompt is not None
+        assert snapshot.pending_prompt.prompt_id == "prompt-1"
+        assert snapshot.available_actions == ["REPLY_CLARIFICATION", "QUIT"]
+        assert snapshot.message == "What level should I target?"
+
 
 class TestContinueAsNewInput:
     def test_carry_over_serialized_in_workflow_input(self):

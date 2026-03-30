@@ -35,7 +35,13 @@ export function isComposerEnabled(snapshot: WorkflowSnapshot | null): boolean {
 }
 
 export function shouldBackgroundPoll(snapshot: WorkflowSnapshot | null): boolean {
-  return snapshot !== null && POLLABLE_STATES.has(snapshot.state);
+  if (snapshot === null) {
+    return false;
+  }
+  if (POLLABLE_STATES.has(snapshot.state)) {
+    return true;
+  }
+  return snapshot.state === "CLARIFYING" && snapshot.pending_prompt === null;
 }
 
 export function snapshotSignature(snapshot: WorkflowSnapshot | null): string {

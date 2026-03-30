@@ -310,17 +310,13 @@ class ConversationalAgentWorkflow:
         summary: str,
         topic_candidates: list[str],
     ) -> UserPreferences:
-        self._state = CLARIFYING
-        self._message = "Let me understand your preferences..."
-        self._available_actions = ["REPLY_CLARIFICATION", "QUIT"]
-        self._review_sessions = None
-        self._completed_review = None
-        self._result = None
+        self._set_clarification_wait_state()
 
         history: list[dict[str, str]] = []
         partial_preferences = UserPreferencesPatch()
 
         for turn_index in range(_MAX_CLARIFICATION_TURNS):
+            self._set_clarification_wait_state()
             prompt_id = (
                 f"{workflow.info().workflow_id}:s:"
                 f"{self._carry.session_seq}:clar:{turn_index + 1}"
@@ -344,17 +340,17 @@ class ConversationalAgentWorkflow:
 
             if decision.action == "READY":
                 self._pending_prompt = None
+                self._available_actions = []
                 return resolve_user_preferences(
                     partial_preferences,
                     fallback_focus_areas=topic_candidates,
                 )
 
-            self._pending_prompt = PromptView(
+            self._set_clarification_prompt(
                 prompt_id=prompt_id,
-                text=decision.message,
+                message=decision.message,
                 turn_no=turn_index + 1,
             )
-            self._message = decision.message
             history.append({"role": "assistant", "content": decision.message})
 
             reply = await self._wait_for_command(
@@ -702,6 +698,38 @@ class ConversationalAgentWorkflow:
             "LOAD_COMPLETED_QUIZ",
             "QUIT",
         ]
+
+    def _set_clarification_wait_state(self) -> None:
+        self._state = CLARIFYING
+        self._message = "Let me understand your preferences..."
+        self._pending_prompt = None
+        self._current_question = None
+        self._result = None
+        self._review_sessions = None
+        self._completed_review = None
+        self._last_error = None
+        self._available_actions = ["QUIT"]
+
+    def _set_clarification_prompt(
+        self,
+        *,
+        prompt_id: str,
+        message: str,
+        turn_no: int,
+    ) -> None:
+        self._state = CLARIFYING
+        self._message = message
+        self._pending_prompt = PromptView(
+            prompt_id=prompt_id,
+            text=message,
+            turn_no=turn_no,
+        )
+        self._current_question = None
+        self._result = None
+        self._review_sessions = None
+        self._completed_review = None
+        self._last_error = None
+        self._available_actions = ["REPLY_CLARIFICATION", "QUIT"]
 
     def _clear_views(self) -> None:
         self._pending_prompt = None
