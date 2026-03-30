@@ -3,11 +3,13 @@
 ## Install
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
-2. Clone the repo and install dependencies:
+2. Install Node.js 20+ and npm
+3. Clone the repo and install dependencies:
 
 ```bash
 git clone <repo-url> && cd quiz-agent
 uv sync
+cd frontend && npm install && cd ..
 ```
 
 # Architecture
@@ -16,7 +18,7 @@ The system is split into a durable orchestration layer, specialized workers, and
 
 ```mermaid
 flowchart TD
-    UI["Client / API<br/>FastAPI starter"] --> P["ConversationalAgentWorkflow<br/>parent, durable state machine"]
+    UI["React UI / Auth API<br/>FastAPI starter"] --> P["ConversationalAgentWorkflow<br/>parent, durable state machine"]
 
     P -->|child workflow| SP["SourcePreparationWorkflow"]
     P -->|clarification turns| LLMQ["quiz-llm-activities"]
@@ -53,7 +55,7 @@ flowchart LR
 ## Parts
 
 `FastAPI starter`
-: Exposes a simple HTTP API for starting sessions, sending commands, and querying workflow snapshots. It is a thin transport layer and does not hold quiz state itself.
+: Exposes cookie-session auth endpoints, protects the workflow API, and serves the built React UI at `/ui`. It is still a thin transport layer and does not hold quiz state itself.
 
 `ConversationalAgentWorkflow`
 : This is the parent Temporal workflow and the main brain of the system. It owns the user-facing state machine, command queue, clarification loop, question loop, deterministic scoring, review screens, and continue-as-new boundaries.
@@ -120,13 +122,32 @@ OPENROUTER_GENERATOR_MODEL=anthropic/claude-3.5-sonnet
 OPENROUTER_CRITIC_MODEL=openai/gpt-4.1
 DATABASE_URL=quiz_agent.db
 QUIZ_DEFAULT_QUESTION_COUNT=6
-QUIZ_UI_POLL_SECONDS=1.0
-QUIZ_API_BASE_URL=http://127.0.0.1:8000
+QUIZ_DEMO_PASSWORD=change-me
+QUIZ_SESSION_SECRET=replace-with-a-long-random-secret
+QUIZ_SESSION_MAX_AGE_SECONDS=43200
 ```
 
 `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, and `TEMPORAL_API_KEY` are optional for local development. The app defaults to `localhost:7233`.
 
-3. Start Temporal locally if it is not already running:
+3. Install and build the React UI:
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+For frontend-only iteration, you can also run:
+
+```bash
+cd frontend
+npm run dev
+```
+
+The Vite dev server proxies `/auth` and `/sessions` to the FastAPI backend.
+
+4. Start Temporal locally if it is not already running:
 
 ```bash
 temporal server start-dev
@@ -138,71 +159,73 @@ You can verify it with:
 temporal operator cluster health
 ```
 
-4. Start the workflow worker in its own terminal:
+5. Start the workflow worker in its own terminal:
 
 ```bash
 uv run python -m app.workers.workflow_worker
 ```
 
-5. Start the HTTP activity worker in a second terminal:
+6. Start the HTTP activity worker in a second terminal:
 
 ```bash
 uv run python -m app.workers.http_worker
 ```
 
-6. Start the LLM activity worker in a third terminal:
+7. Start the LLM activity worker in a third terminal:
 
 ```bash
 uv run python -m app.workers.llm_worker
 ```
 
-7. Start the DB activity worker in a fourth terminal:
+8. Start the DB activity worker in a fourth terminal:
 
 ```bash
 uv run python -m app.workers.db_worker
 ```
 
-8. Start the FastAPI app in a fifth terminal:
+9. Start the FastAPI app in a fifth terminal:
 
 ```bash
 uv run python -m app.starter
 ```
 
-9. The system is live when all five Python processes above are running and Temporal is healthy. The API will be available at `http://localhost:8000`, interactive API docs will be available at `http://localhost:8000/docs`, and the mounted Gradio UI will be available at `http://localhost:8000/ui`.
+10. The system is live when all five Python processes above are running and Temporal is healthy. The API will be available at `http://localhost:8000`, interactive API docs will be available at `http://localhost:8000/docs`, and the mounted React UI will be available at `http://localhost:8000/ui`.
 
 No separate database migration command is needed. The SQLite database is created automatically and migrations are applied by the DB layer on first use.
 
-## Gradio UI
+## React UI
 
-The first user layer is a lightweight internal Gradio app mounted directly inside the FastAPI server at `/ui`.
+The first user layer is a lightweight React app mounted directly inside the FastAPI server at `/ui`.
 
 What it does:
 
-1. Reuses the existing `/sessions`, `/commands`, and `/snapshot` API.
-2. Creates a workflow lazily the first time you start a quiz or load completed reviews.
-3. Stores `user_id` and `workflow_id` in browser-local state so a refresh reconnects to the same workflow.
-4. Polls the workflow snapshot every second only while the backend is actively preparing source material or generating the quiz.
-5. Renders clarification as chat, questions as clickable answer controls, and results/reviews as dedicated screens.
+1. Starts with a login screen that uses email plus a shared demo password.
+2. Uses the authenticated email as the backend `user_id`.
+3. Reuses the existing `/sessions`, `/commands`, and `/snapshot` API behind cookie-session auth.
+4. Creates a workflow lazily the first time you start a quiz or open completed reviews.
+5. Stores the last email, workflow ID, and local transcript so refresh reconnects to the same workflow.
+6. Keeps a chat-style layout with a persistent composer and inline cards for setup, quiz, results, and review flows.
 
 Open `http://localhost:8000/ui` after the starter is running.
 
 ## UI Smoke Checklist
 
 1. Open `/ui`.
-2. Enter a `user_id`, topic, and markdown URL.
-3. Start a new quiz and confirm the UI moves from setup to clarification or directly to quiz generation.
-4. Reply to a clarification prompt and confirm the chat transcript updates.
-5. Answer a single-answer question using the radio control.
-6. Answer a multi-answer question using the checkbox control.
-7. Refresh the browser while a quiz is active and confirm the workflow reconnects.
-8. Finish the quiz and confirm the result screen shows the weighted final score.
-9. Open the completed-quiz list and load a stored review.
-10. Regenerate the last topic from the result screen.
-11. Quit and confirm the UI returns to a ready state for a new session.
+2. Log in with your email and the shared demo password.
+3. Start a new quiz from the setup card by entering a topic and markdown URL.
+4. Confirm the UI moves from setup to clarification or directly to quiz generation.
+5. Reply to a clarification prompt and confirm the chat transcript updates.
+6. Answer a single-answer question using the quiz card.
+7. Answer a multi-answer question using the quiz card.
+8. Refresh the browser while a quiz is active and confirm the workflow reconnects.
+9. Finish the quiz and confirm the result card shows the weighted final score.
+10. Open the completed-quiz list and load a stored review.
+11. Regenerate the last topic from the result card.
+12. Log out and confirm the protected UI returns to the login screen.
 
 # Example run
 
-The example below uses this source URL:
+The example below uses this source URL and the protected API flow:
 
 ```json
 {
@@ -210,22 +233,31 @@ The example below uses this source URL:
 }
 ```
 
-1. Create a workflow session:
+1. Log in and capture the session cookie:
 
 ```bash
-curl -s -X POST http://localhost:8000/sessions \
+curl -s -c cookies.txt -b cookies.txt -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "demo-user"
+    "email": "demo@example.com",
+    "password": "change-me"
   }' | python -m json.tool
+```
+
+2. Create a workflow session:
+
+```bash
+curl -s -c cookies.txt -b cookies.txt -X POST http://localhost:8000/sessions \
+  -H "Content-Type: application/json" \
+  -d '{}' | python -m json.tool
 ```
 
 Copy the returned `workflow_id`.
 
-2. Start a new quiz with the Pipecat README:
+3. Start a new quiz with the Pipecat README:
 
 ```bash
-curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
+curl -s -c cookies.txt -b cookies.txt -X POST http://localhost:8000/sessions/<workflow_id>/commands \
   -H "Content-Type: application/json" \
   -d '{
     "command_id": "cmd-new-quiz-1",
@@ -235,16 +267,16 @@ curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
   }' | python -m json.tool
 ```
 
-3. Poll the workflow snapshot:
+4. Poll the workflow snapshot:
 
 ```bash
-curl -s http://localhost:8000/sessions/<workflow_id>/snapshot | python -m json.tool
+curl -s -c cookies.txt -b cookies.txt http://localhost:8000/sessions/<workflow_id>/snapshot | python -m json.tool
 ```
 
-4. If the snapshot contains `pending_prompt`, reply with a clarification command using `pending_prompt.prompt_id` as the `correlation_id`:
+5. If the snapshot contains `pending_prompt`, reply with a clarification command using `pending_prompt.prompt_id` as the `correlation_id`:
 
 ```bash
-curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
+curl -s -c cookies.txt -b cookies.txt -X POST http://localhost:8000/sessions/<workflow_id>/commands \
   -H "Content-Type: application/json" \
   -d '{
     "command_id": "cmd-clarification-1",
@@ -254,10 +286,10 @@ curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
   }' | python -m json.tool
 ```
 
-5. Poll again until `current_question` is present. Then answer the question using `current_question.question_id` as the `correlation_id`:
+6. Poll again until `current_question` is present. Then answer the question using `current_question.question_id` as the `correlation_id`:
 
 ```bash
-curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
+curl -s -c cookies.txt -b cookies.txt -X POST http://localhost:8000/sessions/<workflow_id>/commands \
   -H "Content-Type: application/json" \
   -d '{
     "command_id": "cmd-answer-1",
@@ -269,12 +301,12 @@ curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
 
 For multi-answer questions, send more than one option index, for example `"selected_answers": [0, 2]`.
 
-6. Repeat the snapshot and answer steps until the workflow reaches `RESULT_MENU`.
+7. Repeat the snapshot and answer steps until the workflow reaches `RESULT_MENU`.
 
-7. When you are finished, stop the workflow cleanly:
+8. When you are finished, stop the workflow cleanly:
 
 ```bash
-curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
+curl -s -c cookies.txt -b cookies.txt -X POST http://localhost:8000/sessions/<workflow_id>/commands \
   -H "Content-Type: application/json" \
   -d '{
     "command_id": "cmd-quit-1",
@@ -289,12 +321,14 @@ curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
 3. Enter:
 
 ```text
-User ID: demo-user
+Email: demo@example.com
+Password: change-me
 Topic: Pipecat
 Markdown URL: https://github.com/pipecat-ai/pipecat/blob/main/README.md
 ```
 
-4. Click `New Quiz`.
-5. If clarification appears, reply in the chat box.
-6. Answer the quiz using the rendered radio and checkbox controls.
-7. Review the weighted result on the result screen.
+4. Click `Enter workspace`.
+5. Click `New Quiz`.
+6. If clarification appears, reply in the composer.
+7. Answer the quiz using the rendered quiz cards.
+8. Review the weighted result in the result card.

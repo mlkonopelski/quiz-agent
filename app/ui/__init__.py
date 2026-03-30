@@ -1,5 +1,1 @@
-"""UI package for the mounted Gradio operator app."""
-
-from app.ui.gradio_app import build_gradio_app
-
-__all__ = ["build_gradio_app"]
+"""Frontend-related package namespace."""
