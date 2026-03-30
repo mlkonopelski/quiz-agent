@@ -21,10 +21,18 @@ from app.services.openrouter_client import OpenRouterJsonGateway, get_model
 # ── Prompt templates ─────────────────────────────────────────────
 
 _CLARIFICATION_SYSTEM = """\
-You are a quiz configuration assistant. Your job is to understand what the user \
-wants from their quiz so we can generate the best possible questions.
+You are a quiz configuration assistant. The user wants a quiz about "{topic}" \
+based on the following source material.
 
-You have a source document summary and topic. Through conversation, determine:
+Source document summary:
+{source_summary}
+
+Key topics found in the source:
+{topic_candidates}
+
+Your job is to have a short conversation to understand what the user wants so we \
+can generate the best possible questions. Use your knowledge of the source material \
+to ask specific, relevant questions. Through conversation, determine:
 - difficulty level (beginner/intermediate/advanced/mixed)
 - question style (conceptual/technical/mixed)
 - depth (broad_overview/focused_deep_dive)
@@ -33,20 +41,20 @@ You have a source document summary and topic. Through conversation, determine:
 
 If you have enough information to configure the quiz, respond with action "READY" \
 and fill in the preferences. Otherwise respond with action "ASK_USER" and a \
-natural follow-up question.
+natural follow-up question that references the source material.
 
 Respond ONLY with valid JSON matching this schema:
-{
+{{
   "action": "ASK_USER" | "READY",
   "message": "<your message to the user>",
-  "preferences_patch": {
+  "preferences_patch": {{
     "difficulty": "beginner"|"intermediate"|"advanced"|"mixed"|null,
     "question_style": "conceptual"|"technical"|"mixed"|null,
     "depth": "broad_overview"|"focused_deep_dive"|null,
     "focus_areas": ["area1", "area2"],
     "additional_notes": ""|null
-  }
-}"""
+  }}
+}}"""
 
 _GENERATE_SYSTEM = """\
 You are a quiz question generator. Generate exactly {question_count} multiple-choice \
@@ -143,14 +151,18 @@ async def run_clarification_turn(
     gateway = OpenRouterJsonGateway()
     model = get_model("OPENROUTER_CLARIFICATION_MODEL")
 
+    system_msg = _CLARIFICATION_SYSTEM.format(
+        topic=input.topic,
+        source_summary=input.summary or "No summary provided",
+        topic_candidates=", ".join(input.fallback_focus_areas) or "none",
+    )
+
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": _CLARIFICATION_SYSTEM},
+        {"role": "system", "content": system_msg},
         {
             "role": "user",
             "content": (
                 f"Topic: {input.topic}\n"
-                f"Source summary: {input.summary}\n"
-                f"Suggested focus areas if undecided: {input.fallback_focus_areas}\n"
                 f"Current preferences: "
                 f"{input.partial_preferences.model_dump_json(exclude_none=True)}"
             ),
