@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv python:*)",
+      "WebFetch(domain:docs.temporal.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(ls /Users/mkonopelski/Projects/personal/quiz-agent/.venv/lib/python3.12/site-packages/temporalio/envconfig*)",
+      "Bash(git log:*)",
+      "Bash(git commit:*)",
+      "Bash(pip index:*)",
+      "Bash(uv pip:*)",
+      "Bash(source /Users/mkonopelski/Projects/personal/quiz-agent/.venv/bin/activate)",
+      "Bash(pip list:*)"
+    ]
+  }
+}

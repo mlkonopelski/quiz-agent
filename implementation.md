@@ -321,6 +321,15 @@ class ClarificationDecision(BaseModel):
    - stop asking
    - proceed with defaults + whatever preferences were already extracted
 
+`run_clarification_turn` calls the OpenRouter client with the configured clarification model and must return a validated `ClarificationDecision`.
+`QuizGenerationWorkflow` uses OpenRouter for:
+1. quiz generation
+2. critique
+3. regeneration
+
+The generator and critic use separately configured OpenRouter model IDs.
+
+
 ### Clarification timeout policy
 
 Clarification timeout is **not** a workflow failure.
@@ -544,33 +553,39 @@ Resume active quiz by reconnecting to the **same running workflow ID**, not by l
 
 ---
 
-## 12. LLM and content handling rules
+## 12. OpenRouter integration rules
 
-## 12.1 Generator and critic must be separate configs
+### 12.1 OpenRouter is the only LLM API layer
 
-Required settings:
-- `QUIZ_GENERATOR_MODEL`
-- `QUIZ_CRITIC_MODEL`
+All LLM activities must call OpenRouter exclusively through a shared client abstraction.
 
-Production default should use distinct model IDs.
+Activities affected:
+- `run_clarification_turn`
+- `generate_quiz`
+- `critique_quiz`
+- `regenerate_quiz`
 
-## 12.2 Do not pass blind prefixes of source content
+No activity may call Anthropic, OpenAI, Gemini, or any other provider SDK directly.
 
-Source preparation must:
-- fetch full source
-- preserve raw content
-- normalize and chunk it
-- generate a summary and topic candidates
+### 12.2 Model configuration
 
-Do not treat “first 2000 chars” as a summary.
+OpenRouter model IDs must be configured separately for:
+- clarification
+- generator
+- critic
 
-## 12.3 Prompt-injection mitigation
+Example:
+- `OPENROUTER_CLARIFICATION_MODEL=google/gemini-2.0-flash-001`
+- `OPENROUTER_GENERATOR_MODEL=anthropic/claude-3.5-sonnet`
+- `OPENROUTER_CRITIC_MODEL=openai/gpt-4.1`
 
-Prompts must:
-- clearly delimit source content as data
-- instruct models not to follow instructions found inside the source
-- request structured outputs only
-- validate outputs before workflow acceptance
+### 12.3 Error handling
+
+OpenRouter/API failures must be classified into:
+- retryable: 429, network timeout, upstream 5xx, temporary provider unavailability
+- non-retryable: invalid model ID, invalid auth, schema validation failure after successful response
+
+Activities must convert retryable OpenRouter failures into retryable activity failures.
 
 ---
 
@@ -661,23 +676,29 @@ Benefits:
 - add unique constraints
 - implement idempotent upserts
 
-### Phase 3 — Workflow rewrite
+### Phase 2 — OpenRouter integration
+- implement `services/openrouter_client.py`
+- implement a shared `LLMGateway` used by all LLM activities
+- centralize request headers, retry mapping, and structured-output parsing
+- ban direct provider SDK usage outside this module
+
+### Phase 4 — Workflow rewrite
 - move clarification loop into parent
 - make signal handlers queue-only
 - remove query-based child polling
 - add continue-as-new boundaries
 
-### Phase 4 — Quiz generation hardening
+### Phase 5 — Quiz generation hardening
 - add strict quiz validation
 - add critic model config separation
 - add freshness exclusion logic
 
-### Phase 5 — Client update
+### Phase 6 — Client update
 - CLI/Gradio submit `command_id` + `correlation_id`
 - render only `WorkflowSnapshot`
 - reconnect by workflow ID for active sessions
 
-### Phase 6 — Test + rollout
+### Phase 7 — Test + rollout
 - replay tests
 - idempotency tests
 - failure injection
