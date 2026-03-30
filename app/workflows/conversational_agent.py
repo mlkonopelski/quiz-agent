@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from temporalio import workflow
-from temporalio.exceptions import ApplicationError
+from temporalio.exceptions import ActivityError, ApplicationError, ChildWorkflowError
 
 with workflow.unsafe.imports_passed_through():
     from app.activities.db_activities import finalize_session, persist_answer
@@ -83,6 +83,14 @@ class _CarryOverState:
         self.last_topic: str | None = None
         self.last_preferences: UserPreferences | None = None
         self.last_question_hashes: list[str] = []
+
+
+def _extract_root_cause(exc: BaseException) -> str:
+    """Walk the cause chain to find the original error message."""
+    current = exc
+    while current.cause if isinstance(current, (ChildWorkflowError, ActivityError)) else None:
+        current = current.cause  # type: ignore[assignment]
+    return str(current)
 
 
 # ── Workflow ─────────────────────────────────────────────────────
@@ -217,8 +225,8 @@ class ConversationalAgentWorkflow:
                 )
             except Exception as exc:
                 self._state = PREPARATION_FAILED
-                self._last_error = str(exc)
-                self._message = "Source preparation failed."
+                self._last_error = _extract_root_cause(exc)
+                self._message = f"Source preparation failed: {self._last_error}"
                 self._available_actions = ["BACK_TO_MENU", "QUIT"]
                 await self._wait_for_recovery()
                 return
@@ -259,8 +267,8 @@ class ConversationalAgentWorkflow:
             )
         except Exception as exc:
             self._state = GENERATION_FAILED
-            self._last_error = str(exc)
-            self._message = "Quiz generation failed."
+            self._last_error = _extract_root_cause(exc)
+            self._message = f"Quiz generation failed: {self._last_error}"
             self._available_actions = ["BACK_TO_MENU", "QUIT"]
             await self._wait_for_recovery()
             return
@@ -492,8 +500,8 @@ class ConversationalAgentWorkflow:
             )
         except Exception as exc:
             self._state = GENERATION_FAILED
-            self._last_error = str(exc)
-            self._message = "Quiz regeneration failed."
+            self._last_error = _extract_root_cause(exc)
+            self._message = f"Quiz regeneration failed: {self._last_error}"
             self._available_actions = ["BACK_TO_MENU", "QUIT"]
             await self._wait_for_recovery()
             return
