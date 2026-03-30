@@ -120,6 +120,8 @@ OPENROUTER_GENERATOR_MODEL=anthropic/claude-3.5-sonnet
 OPENROUTER_CRITIC_MODEL=openai/gpt-4.1
 DATABASE_URL=quiz_agent.db
 QUIZ_DEFAULT_QUESTION_COUNT=6
+QUIZ_UI_POLL_SECONDS=1.0
+QUIZ_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, and `TEMPORAL_API_KEY` are optional for local development. The app defaults to `localhost:7233`.
@@ -166,9 +168,37 @@ uv run python -m app.workers.db_worker
 uv run python -m app.starter
 ```
 
-9. The system is live when all five Python processes above are running and Temporal is healthy. The API will be available at `http://localhost:8000`, and interactive API docs will be available at `http://localhost:8000/docs`.
+9. The system is live when all five Python processes above are running and Temporal is healthy. The API will be available at `http://localhost:8000`, interactive API docs will be available at `http://localhost:8000/docs`, and the mounted Gradio UI will be available at `http://localhost:8000/ui`.
 
 No separate database migration command is needed. The SQLite database is created automatically and migrations are applied by the DB layer on first use.
+
+## Gradio UI
+
+The first user layer is a lightweight internal Gradio app mounted directly inside the FastAPI server at `/ui`.
+
+What it does:
+
+1. Reuses the existing `/sessions`, `/commands`, and `/snapshot` API.
+2. Creates a workflow lazily the first time you start a quiz or load completed reviews.
+3. Stores `user_id` and `workflow_id` in browser-local state so a refresh reconnects to the same workflow.
+4. Polls the workflow snapshot every second only while the backend is actively preparing source material or generating the quiz.
+5. Renders clarification as chat, questions as clickable answer controls, and results/reviews as dedicated screens.
+
+Open `http://localhost:8000/ui` after the starter is running.
+
+## UI Smoke Checklist
+
+1. Open `/ui`.
+2. Enter a `user_id`, topic, and markdown URL.
+3. Start a new quiz and confirm the UI moves from setup to clarification or directly to quiz generation.
+4. Reply to a clarification prompt and confirm the chat transcript updates.
+5. Answer a single-answer question using the radio control.
+6. Answer a multi-answer question using the checkbox control.
+7. Refresh the browser while a quiz is active and confirm the workflow reconnects.
+8. Finish the quiz and confirm the result screen shows the weighted final score.
+9. Open the completed-quiz list and load a stored review.
+10. Regenerate the last topic from the result screen.
+11. Quit and confirm the UI returns to a ready state for a new session.
 
 # Example run
 
@@ -251,3 +281,20 @@ curl -s -X POST http://localhost:8000/sessions/<workflow_id>/commands \
     "kind": "QUIT"
   }' | python -m json.tool
 ```
+
+## Example UI Run
+
+1. Start the backend using the deployment steps above.
+2. Open `http://localhost:8000/ui`.
+3. Enter:
+
+```text
+User ID: demo-user
+Topic: Pipecat
+Markdown URL: https://github.com/pipecat-ai/pipecat/blob/main/README.md
+```
+
+4. Click `New Quiz`.
+5. If clarification appears, reply in the chat box.
+6. Answer the quiz using the rendered radio and checkbox controls.
+7. Review the weighted result on the result screen.
