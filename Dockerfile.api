@@ -1,0 +1,34 @@
+FROM node:22-slim AS frontend-build
+
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ .
+RUN npm run build
+
+# ---
+
+FROM python:3.13-slim
+
+# Mirror repo layout so:
+# - Path(__file__).parents[2] from /repo/backend/app/starter.py = /repo
+# - pyproject.toml can find ../README.md
+WORKDIR /repo/backend
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Copy README (referenced by pyproject.toml as ../README.md)
+COPY README.md /repo/README.md
+
+# Install backend dependencies
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --no-dev --frozen
+
+# Copy backend source
+COPY backend/ .
+
+# Copy built frontend to where starter.py expects it
+COPY --from=frontend-build /app/frontend/dist /repo/frontend/dist
+
+CMD [".venv/bin/python", "-m", "app.starter"]

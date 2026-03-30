@@ -1,0 +1,24 @@
+FROM python:3.13-slim
+
+# Mirror repo layout so pyproject.toml can find ../README.md
+WORKDIR /repo/backend
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Copy README (referenced by pyproject.toml as ../README.md)
+COPY README.md /repo/README.md
+
+# Install dependencies
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --no-dev --frozen
+
+# Copy backend source
+COPY backend/ .
+
+# WORKER_CMD is set per-service via Railway env vars, e.g.:
+#   python -m app.workers.workflow_worker
+#   python -m app.workers.http_worker
+#   python -m app.workers.llm_worker
+#   python -m app.workers.db_worker
+CMD ["sh", "-c", ".venv/bin/${WORKER_CMD}"]
