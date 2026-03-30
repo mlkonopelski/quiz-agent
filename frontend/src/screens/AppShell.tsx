@@ -544,11 +544,10 @@ export function AppShell() {
     return (
       <div className="auth-shell">
         <div className="auth-panel">
-          <p className="eyebrow">Temporal Quiz Agent</p>
-          <h1>Protected demo login</h1>
+          <p className="eyebrow">Quiz Agent by Mati</p>
+          <h1>Welcome Tooploox!</h1>
           <p className="auth-copy">
-            Sign in with your email and the shared demo password to access the
-            workflow-backed quiz operator UI.
+            Sign in with your email and password.
           </p>
           {displayedError ? (
             <div className="error-banner" role="alert">
@@ -601,7 +600,14 @@ export function AppShell() {
         snapshot,
       )}`}
     >
-      <AssistantBubble text="Welcome back. Start a source-driven quiz or open a completed review whenever you’re ready." />
+      {/* <AssistantBubble>
+        <p><strong>Welcome to Quiz Agent!</strong> Turn any markdown document into a tailored quiz.</p>
+        <p style={{ margin: "8px 0 0", color: "var(--text-muted)", fontSize: "0.92rem" }}>
+          <strong>1.</strong> Enter a topic and markdown URL below<br />
+          <strong>2.</strong> I'll ask a few questions to tailor difficulty and focus<br />
+          <strong>3.</strong> Answer the quiz, then review your results
+        </p>
+      </AssistantBubble> */}
 
       {snapshot?.message ? (
         <AssistantBubble text={snapshot.message} />

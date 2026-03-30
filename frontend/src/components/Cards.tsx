@@ -383,11 +383,11 @@ export function FailureCard({
   );
 }
 
-export function AssistantBubble({ text }: { text: string }) {
+export function AssistantBubble({ text, children }: { text?: string; children?: React.ReactNode }) {
   return (
     <div className="message-row">
       <div className="avatar avatar-assistant">A</div>
-      <article className="message-bubble assistant-bubble">{text}</article>
+      <article className="message-bubble assistant-bubble">{children ?? text}</article>
     </div>
   );
 }

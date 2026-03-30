@@ -53,7 +53,7 @@ describe("AppShell", () => {
     render(<AppShell />);
 
     expect(
-      await screen.findByRole("heading", { name: /protected demo login/i }),
+      await screen.findByRole("heading", { name: /welcome tooploox/i }),
     ).toBeVisible();
   });
 
