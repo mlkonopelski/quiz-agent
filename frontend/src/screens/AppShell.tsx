@@ -626,7 +626,8 @@ export function AppShell() {
         </p>
       </AssistantBubble> */}
 
-      {snapshot?.message ? (
+      {snapshot?.message &&
+      !(snapshot.pending_prompt && snapshot.message === snapshot.pending_prompt.text) ? (
         <AssistantBubble text={snapshot.message} />
       ) : null}
 

@@ -696,6 +696,7 @@ class ConversationalAgentWorkflow:
             "NEW_QUIZ",
             "REGENERATE_LAST_TOPIC",
             "LOAD_COMPLETED_QUIZ",
+            "BACK_TO_MENU",
             "QUIT",
         ]
 
