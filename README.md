@@ -8,7 +8,7 @@
 
 ```bash
 git clone <repo-url> && cd quiz-agent
-uv sync
+cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
 ```
 
@@ -110,10 +110,10 @@ flowchart LR
 1. Create a local environment file:
 
 ```bash
-cp .env.example .env
+cp backend/.env.example backend/.env
 ```
 
-2. Fill in the required values in `.env`:
+2. Fill in the required values in `backend/.env`:
 
 ```bash
 OPENROUTER_API_KEY=your-openrouter-api-key
@@ -162,31 +162,31 @@ temporal operator cluster health
 5. Start the workflow worker in its own terminal:
 
 ```bash
-uv run python -m app.workers.workflow_worker
+cd backend && uv run python -m app.workers.workflow_worker
 ```
 
 6. Start the HTTP activity worker in a second terminal:
 
 ```bash
-uv run python -m app.workers.http_worker
+cd backend && uv run python -m app.workers.http_worker
 ```
 
 7. Start the LLM activity worker in a third terminal:
 
 ```bash
-uv run python -m app.workers.llm_worker
+cd backend && uv run python -m app.workers.llm_worker
 ```
 
 8. Start the DB activity worker in a fourth terminal:
 
 ```bash
-uv run python -m app.workers.db_worker
+cd backend && uv run python -m app.workers.db_worker
 ```
 
 9. Start the FastAPI app in a fifth terminal:
 
 ```bash
-uv run python -m app.starter
+cd backend && uv run python -m app.starter
 ```
 
 10. The system is live when all five Python processes above are running and Temporal is healthy. The API will be available at `http://localhost:8000`, interactive API docs will be available at `http://localhost:8000/docs`, and the mounted React UI will be available at `http://localhost:8000/ui`.

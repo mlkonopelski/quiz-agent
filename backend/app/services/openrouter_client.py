@@ -110,6 +110,41 @@ class OpenRouterClient:
         await self._client.aclose()
 
 
+def _make_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Make a JSON schema strict-mode compatible for OpenRouter.
+
+    Strict mode requires every object to have ``additionalProperties: false``
+    and all properties listed in ``required``.
+    """
+    schema = dict(schema)
+
+    if "$defs" in schema:
+        schema["$defs"] = {
+            k: _make_strict_schema(v) for k, v in schema["$defs"].items()
+        }
+
+    if schema.get("type") == "object" and "properties" in schema:
+        schema["additionalProperties"] = False
+        schema["required"] = list(schema["properties"].keys())
+
+    for key in ("items", "prefixItems"):
+        if key in schema and isinstance(schema[key], dict):
+            schema[key] = _make_strict_schema(schema[key])
+
+    if "anyOf" in schema:
+        schema["anyOf"] = [
+            _make_strict_schema(branch) if isinstance(branch, dict) else branch
+            for branch in schema["anyOf"]
+        ]
+
+    if "properties" in schema:
+        schema["properties"] = {
+            k: _make_strict_schema(v) for k, v in schema["properties"].items()
+        }
+
+    return schema
+
+
 class OpenRouterJsonGateway:
     def __init__(self, client: OpenRouterClient | None = None) -> None:
         self._client = client or OpenRouterClient()
@@ -122,10 +157,19 @@ class OpenRouterJsonGateway:
         response_type: type[_T],
         temperature: float = 0.2,
     ) -> _T:
+        schema = _make_strict_schema(response_type.model_json_schema())
         response = await self._client.chat_completion(
             model=model,
             messages=messages,
             temperature=temperature,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": response_type.__name__,
+                    "strict": True,
+                    "schema": schema,
+                },
+            },
         )
         content = self._extract_json_text(self._client.get_content(response))
         try:

@@ -23,7 +23,7 @@ from app.models.conversation import ConversationWorkflowInput
 from app.models.snapshots import WorkflowSnapshot
 from app.workflows.conversational_agent import ConversationalAgentWorkflow
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_UI_BUILD_DIR = _REPO_ROOT / "frontend" / "dist"
 _FALLBACK_SESSION_SECRET = "quiz-agent-dev-session-secret"
 _AUTH_SESSION_KEY = "quiz_agent_auth"
