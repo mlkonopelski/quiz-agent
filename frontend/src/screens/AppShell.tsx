@@ -393,8 +393,8 @@ export function AppShell() {
   }
 
   async function handleStartQuiz() {
-    if (!topic.trim() || !markdownUrl.trim()) {
-      setUiError("Topic and markdown URL are required.");
+    if (!topic.trim()) {
+      setUiError("Topic is required.");
       return;
     }
 
@@ -403,7 +403,7 @@ export function AppShell() {
         command_id: crypto.randomUUID(),
         kind: "NEW_QUIZ",
         topic: topic.trim(),
-        markdown_url: markdownUrl.trim(),
+        markdown_url: markdownUrl.trim() || undefined,
         selected_answers: [],
       },
       {

@@ -9,6 +9,7 @@ from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
     from app.activities.db_activities import persist_prepared_source
+    from app.activities.llm_activities import websearch_source
     from app.activities.source_activities import (
         fetch_source,
         normalize_source,
@@ -23,6 +24,7 @@ with workflow.unsafe.imports_passed_through():
         SourcePreparationInput,
         StoreRawSourceInput,
         SummarizeSourceInput,
+        WebsearchSourceInput,
     )
 
 # Task queues per spec §14
@@ -35,13 +37,21 @@ _LLM_QUEUE = "quiz-llm-activities"
 class SourcePreparationWorkflow:
     @workflow.run
     async def run(self, input: SourcePreparationInput) -> SourceDescriptor:
-        # 1. Fetch raw markdown
-        fetch_result = await workflow.execute_activity(
-            fetch_source,
-            FetchSourceInput(markdown_url=input.markdown_url),
-            task_queue=_HTTP_QUEUE,
-            schedule_to_close_timeout=timedelta(seconds=60),
-        )
+        # 1. Fetch raw content (URL fetch or websearch)
+        if input.markdown_url.startswith("websearch://"):
+            fetch_result = await workflow.execute_activity(
+                websearch_source,
+                WebsearchSourceInput(topic=input.topic),
+                task_queue=_LLM_QUEUE,
+                schedule_to_close_timeout=timedelta(seconds=90),
+            )
+        else:
+            fetch_result = await workflow.execute_activity(
+                fetch_source,
+                FetchSourceInput(markdown_url=input.markdown_url),
+                task_queue=_HTTP_QUEUE,
+                schedule_to_close_timeout=timedelta(seconds=60),
+            )
 
         # 2. Store raw source (idempotent)
         source_id = await workflow.execute_activity(

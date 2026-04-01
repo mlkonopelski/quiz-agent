@@ -8,6 +8,7 @@ from app.activities.llm_activities import (
     generate_quiz,
     regenerate_quiz,
     run_clarification_turn,
+    websearch_source,
 )
 from app.activities.source_activities import summarize_source
 from app.workers._common import main, run_worker
@@ -22,6 +23,7 @@ if __name__ == "__main__":
                 critique_quiz,
                 regenerate_quiz,
                 summarize_source,
+                websearch_source,
             ],
         )
     )

@@ -33,6 +33,10 @@ class FetchSourceOutput(BaseModel):
     source_hash: str
 
 
+class WebsearchSourceInput(BaseModel):
+    topic: str
+
+
 class StoreRawSourceInput(BaseModel):
     source_request_key: str
     markdown_url: str

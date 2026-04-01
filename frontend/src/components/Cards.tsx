@@ -57,7 +57,7 @@ export function SetupCard({
       </label>
 
       <label className="field">
-        <span>Markdown URL</span>
+        <span>Markdown URL (optional — uses Wikipedia if empty)</span>
         <input
           onChange={(event) => onMarkdownUrlChange(event.currentTarget.value)}
           placeholder="https://github.com/pipecat-ai/pipecat/blob/main/README.md"

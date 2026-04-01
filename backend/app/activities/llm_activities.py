@@ -5,6 +5,8 @@ All LLM calls go through OpenRouter exclusively.
 
 from __future__ import annotations
 
+import hashlib
+
 from temporalio import activity
 
 from app.models.preferences import ClarificationDecision
@@ -16,7 +18,8 @@ from app.models.quiz import (
     QuizRegenerateInput,
     RawQuizOutput,
 )
-from app.services.openrouter_client import OpenRouterJsonGateway, get_model
+from app.models.source import FetchSourceOutput, WebsearchSourceInput
+from app.services.openrouter_client import OpenRouterClient, OpenRouterJsonGateway, get_model
 
 # ── Prompt templates ─────────────────────────────────────────────
 
@@ -106,6 +109,11 @@ Respond ONLY with valid JSON:
   "issues": ["issue 1", "issue 2"],
   "needs_regeneration": true|false
 }}"""
+
+_WEBSEARCH_SYSTEM = """\
+You are a research assistant. Search for Wikipedia articles about the given topic \
+and compile the most relevant information into a comprehensive markdown document. \
+Include key facts, definitions, and important details from the search results."""
 
 _REGENERATE_SYSTEM = """\
 You are a quiz question generator. Regenerate the quiz incorporating the critic's feedback.
@@ -302,3 +310,57 @@ async def regenerate_quiz(input: QuizRegenerateInput) -> RawQuizOutput:
         )
     finally:
         await gateway.close()
+
+
+@activity.defn
+async def websearch_source(input: WebsearchSourceInput) -> FetchSourceOutput:
+    """Search Wikipedia via OpenRouter web plugin for source material."""
+    try:
+        model_id = get_model("OPENROUTER_WEBSEARCH_MODEL")
+    except Exception:
+        model_id = get_model("OPENROUTER_CLARIFICATION_MODEL")
+
+    client = OpenRouterClient()
+    try:
+        response = await client.chat_completion(
+            model=model_id,
+            messages=[
+                {"role": "system", "content": _WEBSEARCH_SYSTEM},
+                {
+                    "role": "user",
+                    "content": f"Find Wikipedia sources about: {input.topic}",
+                },
+            ],
+            plugins=[
+                {
+                    "id": "web",
+                    "include_domains": ["wikipedia.org"],
+                    "max_results": 5,
+                }
+            ],
+            temperature=0.3,
+        )
+        annotations = client.get_annotations(response)
+        llm_text = client.get_content(response)
+    finally:
+        await client.close()
+
+    parts: list[str] = []
+    if llm_text.strip():
+        parts.append(llm_text.strip())
+
+    for citation in annotations:
+        title = citation.get("title", "Source")
+        url = citation.get("url", "")
+        content = citation.get("content", "")
+        if content.strip():
+            parts.append(f"## {title}\n\nSource: {url}\n\n{content.strip()}")
+
+    raw_content = (
+        "\n\n---\n\n".join(parts)
+        if parts
+        else f"No Wikipedia results found for {input.topic}."
+    )
+    source_hash = hashlib.sha256(raw_content.encode()).hexdigest()[:16]
+
+    return FetchSourceOutput(raw_content=raw_content, source_hash=source_hash)

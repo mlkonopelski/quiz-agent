@@ -55,6 +55,7 @@ class OpenRouterClient:
         model: str,
         messages: list[dict[str, str]],
         response_format: dict[str, Any] | None = None,
+        plugins: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
     ) -> dict[str, Any]:
         """Send a chat completion request to OpenRouter.
@@ -69,6 +70,8 @@ class OpenRouterClient:
         }
         if response_format is not None:
             payload["response_format"] = response_format
+        if plugins is not None:
+            payload["plugins"] = plugins
 
         try:
             response = await self._client.post("/chat/completions", json=payload)
@@ -105,6 +108,17 @@ class OpenRouterClient:
         if content is None:
             return ""
         return str(content)
+
+    def get_annotations(self, response: dict[str, Any]) -> list[dict[str, Any]]:
+        """Extract url_citation annotations from a chat completion response."""
+        message = response["choices"][0]["message"]
+        return [
+            a["url_citation"]
+            for a in message.get("annotations", [])
+            if isinstance(a, dict)
+            and a.get("type") == "url_citation"
+            and "url_citation" in a
+        ]
 
     async def close(self) -> None:
         await self._client.aclose()

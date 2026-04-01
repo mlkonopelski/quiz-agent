@@ -215,16 +215,16 @@ class ConversationalAgentWorkflow:
             return
 
     async def _handle_new_quiz(self, command: CommandEnvelope) -> None:
-        if not command.topic or not command.markdown_url:
-            self._last_error = "NEW_QUIZ requires both topic and markdown_url."
-            self._message = "Please provide both a topic and markdown URL."
+        if not command.topic:
+            self._last_error = "NEW_QUIZ requires a topic."
+            self._message = "Please provide a topic."
             self._set_menu_state(preserve_error=True)
             return
 
         self._carry.session_seq += 1
         session_key = f"{workflow.info().workflow_id}:s:{self._carry.session_seq}"
         topic = command.topic
-        markdown_url = command.markdown_url
+        markdown_url = command.markdown_url or f"websearch://{topic}"
 
         self._state = PREPARING_SOURCE
         self._message = f"Preparing source material for '{topic}'..."
